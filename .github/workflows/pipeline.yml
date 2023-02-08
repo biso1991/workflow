@@ -1,0 +1,70 @@
+name: Pipeline
+
+on:
+  pull_request:
+    branches-ignore:
+      - main
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  checks: write
+  contents: write
+
+jobs:
+  run-linters:
+    name: Run pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v2
+        with:
+          repository: biso1991/NLP_Fine_Tuning_Model_Platform_SaaS
+          ref: ${{ env.GITHUB_REF_NAME }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14
+
+      - name: Install Node.js dependencies
+        run: npm ci --prefix ./frontend
+
+      # - name: Run tests Angular
+      #   run: npm run test:prod --prefix ./frontend
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+
+      - name: Install Python dependencies
+        run: pip install black flake8
+
+      - name: Run linters
+        uses: wearerequired/lint-action@v1.11.1
+        with:
+          #git_name: ${{ github.event.commits[0].author.username }}
+          github_token: ${{ secrets.github_token }}
+          auto_fix: true
+          commit_message: 'Fix code style issues with ${linter}'
+          eslint_dir: './frontend'
+          stylelint_dir: './frontend'
+          prettier_dir: './frontend'
+          eslint_extensions: ts
+          stylelint_extensions: scss
+          black_dir: './backend'
+          flake8_dir: './backend'
+          black: true
+          flake8: true
+          eslint: true
+          stylelint: true
+          prettier: true
+
+      - name: Build Image FrontEnd
+        run: cd frontend && docker build . --file dockerfile --tag frontend:$(date +%s)
+
+      - name: Build Container BackEnd
+        run: cd ./backend && docker build . --file Dockerfile --tag backend:$(date +%s)
